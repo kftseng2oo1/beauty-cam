@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>✨ 美顏相機</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500&display=swap');
+
+  :root {
+    --rose: #f4a7b9;
+    --rose-dark: #e8849e;
+    --peach: #fde8ef;
+    --cream: #fff9fb;
+    --soft-gray: #b0a0a8;
+    --dark: #2a1e24;
+    --glass: rgba(255,255,255,0.18);
+    --glass-border: rgba(255,255,255,0.35);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: linear-gradient(160deg, #fce4ec 0%, #f8bbd0 40%, #e1bee7 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    overflow-x: hidden;
+  }
+
+  /* Header */
+  .header {
+    width: 100%;
+    max-width: 430px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px 8px;
+    z-index: 10;
+  }
+  .header-title {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--dark);
+    letter-spacing: 2px;
+  }
+  .header-title span { color: var(--rose-dark); }
+  .icon-btn {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    backdrop-filter: blur(8px);
+    transition: transform 0.15s, background 0.15s;
+  }
+  .icon-btn:active { transform: scale(0.92); background: rgba(255,255,255,0.35); }
+
+  /* Viewfinder */
+  .viewfinder-wrap {
+    width: 100%;
+    max-width: 430px;
+    padding: 0 16px;
+    position: relative;
+    margin-top: 4px;
+  }
+  .viewfinder {
+    width: 100%;
+    aspect-ratio: 3/4;
+    border-radius: 28px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 12px 48px rgba(180,80,120,0.22), 0 2px 8px rgba(0,0,0,0.1);
+    background: #1a0f14;
+  }
+  #videoEl {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    transform: scaleX(-1); /* mirror */
+  }
+  #beautyCanvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    transform: scaleX(-1);
+  }
+  .viewfinder-overlay {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    border-radius: 28px;
+    box-shadow: inset 0 0 40px rgba(244,167,185,0.12);
+  }
+  /* Corner guides */
+  .corner { position: absolute; width: 22px; height: 22px; }
+  .corner-tl { top: 14px; left: 14px; border-top: 2px solid rgba(255,255,255,0.6); border-left: 2px solid rgba(255,255,255,0.6); border-radius: 4px 0 0 0; }
+  .corner-tr { top: 14px; right: 14px; border-top: 2px solid rgba(255,255,255,0.6); border-right: 2px solid rgba(255,255,255,0.6); border-radius: 0 4px 0 0; }
+  .corner-bl { bottom: 14px; left: 14px; border-bottom: 2px solid rgba(255,255,255,0.6); border-left: 2px solid rgba(255,255,255,0.6); border-radius: 0 0 0 4px; }
+  .corner-br { bottom: 14px; right: 14px; border-bottom: 2px solid rgba(255,255,255,0.6); border-right: 2px solid rgba(255,255,255,0.6); border-radius: 0 0 4px 0; }
+
+  /* Beauty badge */
+  .beauty-badge {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    background: rgba(244,167,185,0.28);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 11px;
+    color: #fff;
+    letter-spacing: 1px;
+    font-weight: 500;
+  }
+
+  /* Flash animation */
+  .flash-overlay {
+    position: absolute; inset: 0;
+    background: white;
+    border-radius: 28px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.05s;
+  }
+  .flash-overlay.flash-active { opacity: 1; }
+
+  /* Beauty controls */
+  .beauty-controls {
+    width: 100%;
+    max-width: 430px;
+    padding: 14px 20px 0;
+  }
+  .beauty-label {
+    font-size: 11px;
+    color: var(--soft-gray);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .beauty-label strong { color: var(--rose-dark); font-size: 13px; }
+
+  /* Filter strip */
+  .filter-strip {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .filter-strip::-webkit-scrollbar { display: none; }
+  .filter-chip {
+    flex-shrink: 0;
+    padding: 6px 16px;
+    border-radius: 20px;
+    background: var(--glass);
+    border: 1.5px solid var(--glass-border);
+    backdrop-filter: blur(8px);
+    font-size: 12px;
+    color: var(--dark);
+    cursor: pointer;
+    transition: all 0.18s;
+    white-space: nowrap;
+  }
+  .filter-chip.active {
+    background: var(--rose);
+    border-color: var(--rose);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(244,167,185,0.5);
+  }
+
+  /* Sliders */
+  .sliders {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .slider-name {
+    font-size: 12px;
+    color: var(--dark);
+    width: 40px;
+    flex-shrink: 0;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    flex: 1;
+    height: 4px;
+    border-radius: 4px;
+    background: linear-gradient(to right, var(--rose) 0%, var(--rose) var(--val, 50%), rgba(180,140,160,0.25) var(--val, 50%));
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: white;
+    border: 2.5px solid var(--rose-dark);
+    box-shadow: 0 2px 8px rgba(244,167,185,0.5);
+    cursor: pointer;
+  }
+  .slider-val {
+    font-size: 11px;
+    color: var(--soft-gray);
+    width: 28px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* Bottom bar */
+  .bottom-bar {
+    width: 100%;
+    max-width: 430px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px 24px;
+    margin-top: 4px;
+  }
+  .thumb-preview {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    background: var(--glass);
+    border: 2px solid var(--glass-border);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--soft-gray);
+    font-size: 20px;
+  }
+  .thumb-preview img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 10px;
+  }
+  .thumb-preview:active { transform: scale(0.92); }
+
+  /* Shutter */
+  .shutter-btn {
+    width: 76px; height: 76px;
+    border-radius: 50%;
+    background: white;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 24px rgba(244,167,185,0.45), 0 0 0 5px rgba(244,167,185,0.25);
+    transition: transform 0.12s, box-shadow 0.12s;
+    position: relative;
+  }
+  .shutter-btn::after {
+    content: '';
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--rose) 0%, var(--rose-dark) 100%);
+    position: absolute;
+    transition: transform 0.12s;
+  }
+  .shutter-btn:active { transform: scale(0.93); box-shadow: 0 2px 12px rgba(244,167,185,0.3); }
+  .shutter-btn:active::after { transform: scale(0.92); }
+
+  /* Flip camera */
+  .flip-btn {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: var(--glass);
+    border: 1.5px solid var(--glass-border);
+    backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 22px;
+    transition: transform 0.3s;
+  }
+  .flip-btn:active { transform: rotate(180deg) scale(0.9); }
+
+  /* Permission screen */
+  .permission-screen {
+    position: fixed; inset: 0;
+    background: linear-gradient(160deg, #fce4ec 0%, #f8bbd0 50%, #e1bee7 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    z-index: 100;
+    padding: 32px;
+  }
+  .permission-screen.hidden { display: none; }
+  .perm-icon { font-size: 64px; }
+  .perm-title { font-size: 22px; font-weight: 500; color: var(--dark); text-align: center; }
+  .perm-desc { font-size: 14px; color: var(--soft-gray); text-align: center; line-height: 1.8; }
+  .perm-btn {
+    background: linear-gradient(135deg, var(--rose) 0%, var(--rose-dark) 100%);
+    color: white;
+    border: none;
+    border-radius: 28px;
+    padding: 14px 40px;
+    font-size: 15px;
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(244,167,185,0.5);
+    letter-spacing: 1px;
+  }
+
+  /* Captured modal */
+  .capture-modal {
+    position: fixed; inset: 0;
+    background: rgba(30,10,20,0.75);
+    backdrop-filter: blur(8px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+    padding: 32px;
+  }
+  .capture-modal.visible { opacity: 1; pointer-events: all; }
+  .capture-modal img {
+    max-width: min(90vw, 380px);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    transform: scaleX(-1);
+  }
+  .modal-actions {
+    display: flex; gap: 14px; margin-top: 22px;
+  }
+  .modal-btn {
+    padding: 12px 28px;
+    border-radius: 24px;
+    border: none;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: transform 0.12s;
+    letter-spacing: 0.5px;
+  }
+  .modal-btn:active { transform: scale(0.94); }
+  .modal-btn.save {
+    background: linear-gradient(135deg, var(--rose) 0%, var(--rose-dark) 100%);
+    color: white;
+    box-shadow: 0 6px 20px rgba(244,167,185,0.4);
+  }
+  .modal-btn.close-btn {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+</style>
+
+<!-- PWA Meta — auto-injected by PWA 打包神器 -->
+
+<meta name="description" content="beauty-cam">
+
+
+
+
+
+
+
+<script>if('serviceWorker'in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[SW] registered:',r.scope)}).catch(function(e){console.warn('[SW] failed:',e)});});}</script>
+</head>
+<body>
+
+<!-- Permission screen -->
+<div class="permission-screen" id="permScreen">
+  <div class="perm-icon">📷</div>
+  <div class="perm-title">美顏相機</div>
+  <div class="perm-desc">需要使用您的相機<br>才能開始拍照</div>
+  <button class="perm-btn" id="startBtn">啟動相機</button>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="icon-btn">⚡</div>
+  <div class="header-title">✨ <span>美顏</span>相機</div>
+  <div class="icon-btn">⚙️</div>
+</div>
+
+<!-- Viewfinder -->
+<div class="viewfinder-wrap">
+  <div class="viewfinder">
+    <video id="videoEl" autoplay playsinline muted></video>
+    <canvas id="beautyCanvas"></canvas>
+    <div class="viewfinder-overlay"></div>
+    <div class="corner corner-tl"></div>
+    <div class="corner corner-tr"></div>
+    <div class="corner corner-bl"></div>
+    <div class="corner corner-br"></div>
+    <div class="beauty-badge" id="beautyBadge">✨ 美顏 ON</div>
+    <div class="flash-overlay" id="flashOverlay"></div>
+  </div>
+</div>
+
+<!-- Beauty controls -->
+<div class="beauty-controls">
+  <div class="beauty-label">
+    濾鏡模式
+    <strong id="activeFilterName">自然</strong>
+  </div>
+  <div class="filter-strip" id="filterStrip"></div>
+
+  <div class="sliders">
+    <div class="slider-row">
+      <span class="slider-name">磨皮</span>
+      <input type="range" id="sliderSkin" min="0" max="100" value="40">
+      <span class="slider-val" id="valSkin">40</span>
+    </div>
+    <div class="slider-row">
+      <span class="slider-name">美白</span>
+      <input type="range" id="sliderBright" min="0" max="100" value="30">
+      <span class="slider-val" id="valBright">30</span>
+    </div>
+    <div class="slider-row">
+      <span class="slider-name">對比</span>
+      <input type="range" id="sliderContrast" min="0" max="100" value="20">
+      <span class="slider-val" id="valContrast">20</span>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom bar -->
+<div class="bottom-bar">
+  <div class="thumb-preview" id="thumbPreview">🖼</div>
+  <button class="shutter-btn" id="shutterBtn" aria-label="拍照"></button>
+  <div class="flip-btn" id="flipBtn">🔄</div>
+</div>
+
+<!-- Capture modal -->
+<div class="capture-modal" id="captureModal">
+  <img id="capturedImg" src="" alt="拍攝照片">
+  <div class="modal-actions">
+    <button class="modal-btn save" id="saveBtn">💾 儲存</button>
+    <button class="modal-btn close-btn" id="closeModalBtn">✕ 關閉</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── State ──────────────────────────────────────────────
+  var state = {
+    stream: null,
+    facingMode: 'user',
+    beautyOn: true,
+    skin: 40,
+    bright: 30,
+    contrast: 20,
+    activeFilter: 0,
+    rafId: null,
+    lastCapture: null
+  };
+
+  var filters = [
+    { name: '自然', skin: 40, bright: 30, contrast: 20, hue: 0, sat: 1.0 },
+    { name: '粉嫩', skin: 60, bright: 50, contrast: 10, hue: 5,  sat: 1.1 },
+    { name: '清透', skin: 70, bright: 60, contrast: 15, hue: 0,  sat: 0.9 },
+    { name: '暖調', skin: 50, bright: 40, contrast: 25, hue: 15, sat: 1.15 },
+    { name: '冷白', skin: 55, bright: 55, contrast: 20, hue: -8, sat: 0.85 },
+    { name: '原圖', skin: 0,  bright: 0,  contrast: 0,  hue: 0,  sat: 1.0 }
+  ];
+
+  // ── DOM refs ────────────────────────────────────────────
+  var video       = document.getElementById('videoEl');
+  var canvas      = document.getElementById('beautyCanvas');
+  var ctx         = canvas.getContext('2d');
+  var permScreen  = document.getElementById('permScreen');
+  var startBtn    = document.getElementById('startBtn');
+  var shutterBtn  = document.getElementById('shutterBtn');
+  var flipBtn     = document.getElementById('flipBtn');
+  var flashEl     = document.getElementById('flashOverlay');
+  var thumbEl     = document.getElementById('thumbPreview');
+  var modal       = document.getElementById('captureModal');
+  var capturedImg = document.getElementById('capturedImg');
+  var saveBtn     = document.getElementById('saveBtn');
+  var closeModal  = document.getElementById('closeModalBtn');
+  var beautyBadge = document.getElementById('beautyBadge');
+  var filterStrip = document.getElementById('filterStrip');
+  var activeFilterName = document.getElementById('activeFilterName');
+  var sliders = {
+    skin:     { el: document.getElementById('sliderSkin'),     val: document.getElementById('valSkin') },
+    bright:   { el: document.getElementById('sliderBright'),   val: document.getElementById('valBright') },
+    contrast: { el: document.getElementById('sliderContrast'), val: document.getElementById('valContrast') }
+  };
+
+  // ── Build filter chips ──────────────────────────────────
+  filters.forEach(function(f, i) {
+    var chip = document.createElement('div');
+    chip.className = 'filter-chip' + (i === 0 ? ' active' : '');
+    chip.textContent = f.name;
+    chip.addEventListener('click', function() { applyFilterPreset(i); });
+    filterStrip.appendChild(chip);
+  });
+
+  function applyFilterPreset(idx) {
+    var f = filters[idx];
+    state.activeFilter = idx;
+    state.skin     = f.skin;
+    state.bright   = f.bright;
+    state.contrast = f.contrast;
+    sliders.skin.el.value     = f.skin;
+    sliders.bright.el.value   = f.bright;
+    sliders.contrast.el.value = f.contrast;
+    sliders.skin.val.textContent     = f.skin;
+    sliders.bright.val.textContent   = f.bright;
+    sliders.contrast.val.textContent = f.contrast;
+    updateSliderBgs();
+    activeFilterName.textContent = f.name;
+    document.querySelectorAll('.filter-chip').forEach(function(c, i) {
+      c.classList.toggle('active', i === idx);
+    });
+  }
+
+  // ── Sliders ─────────────────────────────────────────────
+  function updateSliderBgs() {
+    ['skin','bright','contrast'].forEach(function(k) {
+      var el = sliders[k].el;
+      var pct = ((el.value - el.min) / (el.max - el.min) * 100).toFixed(1) + '%';
+      el.style.setProperty('--val', pct);
+    });
+  }
+  updateSliderBgs();
+
+  sliders.skin.el.addEventListener('input', function() {
+    state.skin = parseInt(this.value);
+    sliders.skin.val.textContent = this.value;
+    updateSliderBgs();
+  });
+  sliders.bright.el.addEventListener('input', function() {
+    state.bright = parseInt(this.value);
+    sliders.bright.val.textContent = this.value;
+    updateSliderBgs();
+  });
+  sliders.contrast.el.addEventListener('input', function() {
+    state.contrast = parseInt(this.value);
+    sliders.contrast.val.textContent = this.value;
+    updateSliderBgs();
+  });
+
+  // ── Camera ───────────────────────────────────────────────
+  function startCamera(facingMode) {
+    if (state.stream) {
+      state.stream.getTracks().forEach(function(t) { t.stop(); });
+    }
+    // iOS Safari 相容：用 ideal 容錯，避免 exact 造成 OverconstrainedError
+    // 720p (1280x720) 是 iOS 最穩定支援的解析度
+    var constraints = {
+      video: {
+        facingMode: { ideal: facingMode || 'user' },
+        width:  { ideal: 1280, max: 1920 },
+        height: { ideal: 720,  max: 1080 }
+      },
+      audio: false
+    };
+    return navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
+      state.stream = stream;
+      video.srcObject = stream;
+      return new Promise(function(res) {
+        video.onloadedmetadata = res;
+        // iOS WebView 有時不觸發 onloadedmetadata，加 timeout 保底
+        setTimeout(res, 2000);
+      });
+    }).then(function() {
+      return video.play();
+    }).then(function() {
+      canvas.width  = video.videoWidth  || 1280;
+      canvas.height = video.videoHeight || 720;
+      permScreen.classList.add('hidden');
+      startRenderLoop();
+    });
+  }
+
+  startBtn.addEventListener('click', function() {
+    startCamera('user').catch(function(e) {
+      alert('無法存取相機：' + e.message);
+    });
+  });
+
+  flipBtn.addEventListener('click', function() {
+    state.facingMode = state.facingMode === 'user' ? 'environment' : 'user';
+    startCamera(state.facingMode).catch(function() {});
+  });
+
+  // ── 組合 ctx.filter 字串（全走 GPU 硬體加速，不碰 getImageData）──────
+  // brightness(1.0) = 原始；> 1 = 提亮
+  // contrast(1.0)   = 原始；> 1 = 增加對比
+  // saturate(1.0)   = 原始
+  // blur(Npx)       = 模糊（磨皮用）
+  // hue-rotate(Ndeg)= 色相偏移
+  function buildFilterStr(skinAmt, brightAmt, contrastAmt, sat, hue) {
+    var brightFactor   = 1 + brightAmt   * 0.006;   // 0~100 → 1.0~1.6
+    var contrastFactor = 1 + contrastAmt * 0.008;   // 0~100 → 1.0~1.8
+    var blurPx         = (skinAmt / 100 * 2.5).toFixed(1); // 0~100 → 0~2.5px
+    return [
+      'brightness(' + brightFactor.toFixed(3) + ')',
+      'contrast('   + contrastFactor.toFixed(3) + ')',
+      'saturate('   + (sat || 1).toFixed(2) + ')',
+      'hue-rotate(' + (hue || 0) + 'deg)',
+      blurPx > 0 ? 'blur(' + blurPx + 'px)' : ''
+    ].filter(Boolean).join(' ');
+  }
+
+  function renderFrame() {
+    if (!video.videoWidth) { state.rafId = requestAnimationFrame(renderFrame); return; }
+    if (canvas.width !== video.videoWidth) {
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
+
+    var f = filters[state.activeFilter];
+
+    if (state.skin === 0 && state.bright === 0 && state.contrast === 0 && f.hue === 0 && f.sat === 1) {
+      // 原圖，完全不加濾鏡
+      ctx.filter = 'none';
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    } else if (state.skin > 0) {
+      // 磨皮：blur 層 + 清晰層 疊加，模擬 Soft-Glow 磨皮
+      // 步驟1：模糊層（模擬磨皮底）
+      ctx.filter = buildFilterStr(state.skin, state.bright, state.contrast, f.sat, f.hue);
+      ctx.globalAlpha = 1;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // 步驟2：疊回清晰細節層，globalAlpha 控制透明度（磨皮越強，清晰層越透明）
+      ctx.filter = buildFilterStr(0, state.bright, state.contrast, f.sat, f.hue);
+      ctx.globalAlpha = 1 - state.skin / 200; // 0.5~1.0
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.filter = 'none';
+      ctx.globalAlpha = 1;
+    } else {
+      // 無磨皮，單純亮度/對比/色調（全 GPU）
+      ctx.filter = buildFilterStr(0, state.bright, state.contrast, f.sat, f.hue);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.filter = 'none';
+    }
+
+    state.rafId = requestAnimationFrame(renderFrame);
+  }
+
+  function startRenderLoop() {
+    if (state.rafId) cancelAnimationFrame(state.rafId);
+    renderFrame();
+  }
+
+  // ── Capture（同步快照）──────────────────────────────────
+  // 用 requestAnimationFrame 確保拍照前已完整渲染當前幀，
+  // 避免快門瞬間畫面與 canvas 內容不同步
+  shutterBtn.addEventListener('click', function() {
+    // 立即閃光回饋
+    flashEl.classList.add('flash-active');
+    setTimeout(function() { flashEl.classList.remove('flash-active'); }, 150);
+
+    // 下一幀渲染完再擷取，保證預覽與拍照一致
+    requestAnimationFrame(function() {
+      var dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      state.lastCapture = dataUrl;
+
+      // Thumbnail
+      thumbEl.innerHTML = '';
+      var img = document.createElement('img');
+      img.src = dataUrl;
+      thumbEl.appendChild(img);
+
+      // Show modal
+      capturedImg.src = dataUrl;
+      modal.classList.add('visible');
+    });
+  });
+
+  thumbEl.addEventListener('click', function() {
+    if (state.lastCapture) {
+      capturedImg.src = state.lastCapture;
+      modal.classList.add('visible');
+    }
+  });
+
+  closeModal.addEventListener('click', function() {
+    modal.classList.remove('visible');
+  });
+
+  saveBtn.addEventListener('click', function() {
+    if (!state.lastCapture) return;
+    var a = document.createElement('a');
+    a.href = state.lastCapture;
+    a.download = 'beauty_' + Date.now() + '.jpg';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    modal.classList.remove('visible');
+  });
+
+  // ── Beauty toggle (badge) ────────────────────────────────
+  beautyBadge.addEventListener('click', function() {
+    state.beautyOn = !state.beautyOn;
+    if (!state.beautyOn) {
+      applyFilterPreset(5); // 原圖
+      beautyBadge.textContent = '美顏 OFF';
+      beautyBadge.style.opacity = '0.5';
+    } else {
+      applyFilterPreset(0);
+      beautyBadge.textContent = '✨ 美顏 ON';
+      beautyBadge.style.opacity = '1';
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
