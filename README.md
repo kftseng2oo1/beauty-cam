@@ -1,44 +1,18 @@
-# beauty-cam
+# ✨ 美顏相機
 
-> beauty-cam
+即時美肌濾鏡相機：用前鏡頭預覽、調整美顏參數，拍下後直接存檔。
 
-## 📦 包含檔案
+**線上使用**：https://kftseng2oo1.github.io/beauty-cam/
 
-- `icon-192.png`
-- `icon-512.png`
-- `manifest.json`
-- `sw.js`
-- `index.html`
-- `icon.svg`
-- `icon-maskable.svg`
-- `offline.html`
+## 主要功能
+- 濾鏡預設：自然、粉嫩、清透、暖調、冷白、原圖
+- 滑桿微調美顏參數，一鍵切換美顏 ON／OFF 對比
+- 拍照後預覽並 💾 儲存
 
-## 🚀 部署到 GitHub Pages
+## 使用方式
+按「啟動相機」並允許相機權限（需 HTTPS），選濾鏡、調整後拍照儲存。
 
-```bash
-git init
-git add .
-git commit -m "init: beauty-cam PWA"
-git branch -M main
-git remote add origin https://github.com/<username>/<repo>.git
-git push -u origin main
-```
-
-然後在 GitHub repo → **Settings → Pages** → Source 選 `main` 分支，等待幾分鐘後即可訪問。
-
-## 📱 安裝 PWA
-
-在支援的瀏覽器（Chrome / Edge / Safari iOS）中打開網頁，  
-點擊「**安裝**」或「**加入主畫面**」即可將此 App 安裝到裝置。
-
-## ⚙ 技術規格
-
-| 項目 | 值 |
-|------|-----|
-| display | standalone |
-| theme_color | #1a73e8 |
-| lang | zh-TW |
-| scope | /beauty-cam/ |
-
----
-*由 [PWA 打包神器](https://github.com) 自動生成*
+## 技術與依賴
+- 單檔 HTML PWA（`index.html` 內含全部 HTML/CSS/JS），`manifest.json` + `sw.js` 提供安裝到主畫面與離線快取。
+- `getUserMedia` 取得鏡頭畫面，Canvas 套用 CSS filter 即時渲染
+- 全部在本機處理，不上傳照片
